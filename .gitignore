@@ -1,0 +1,96 @@
+__pycache__/
+*.pyc
+*.log
+.env
+venv/
+.venv/
+.pytest_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+.idea/
+.vscode/# ===========================
+# Python
+# ===========================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# ===========================
+# Virtual Environment
+# ===========================
+.venv/
+venv/
+ENV/
+env/
+
+# ===========================
+# Environment Variables
+# ===========================
+.env
+.env.*
+
+# ===========================
+# IDE / Editor
+# ===========================
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ===========================
+# Logs
+# ===========================
+*.log
+logs/
+
+# ===========================
+# Build / Distribution
+# ===========================
+build/
+dist/
+pip-wheel-metadata/
+
+# ===========================
+# Operating System
+# ===========================
+.DS_Store
+Thumbs.db
+
+# ===========================
+# Docker
+# ===========================
+*.tar
+
+# ===========================
+# Terraform (AWS Phase)
+# ===========================
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+terraform.tfvars
+
+# ===========================
+# Kubernetes
+# ===========================
+kubeconfig
+
+# ===========================
+# Secrets
+# ===========================
+*.pem
+*.key
+*.crt
+*.p12
+*.jks
