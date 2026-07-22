@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, status
 
-from app.schemas import RegisterRequest
+from app.schemas import RegisterRequest, LoginRequest
 from app.services.auth_service import auth_service
 
 router = APIRouter(
@@ -31,3 +31,19 @@ def register(user: RegisterRequest):
         )
 
     return registered_user
+
+@router.post("/login")
+def login(user: LoginRequest):
+
+    authenticated_user = auth_service.authenticate_user(
+        user.email,
+        user.password
+    )
+
+    if authenticated_user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password"
+        )
+
+    return authenticated_user

@@ -1,5 +1,5 @@
 from app.schemas import RegisterRequest
-from app.core.security import hash_password
+from app.core.password import hash_password, verify_password
 
 
 class AuthService:
@@ -8,7 +8,6 @@ class AuthService:
         self.next_id = 1
 
     def register(self, user: RegisterRequest):
-        # Check if email already exists
         for existing_user in self.users:
             if existing_user["email"] == user.email:
                 return None
@@ -34,6 +33,21 @@ class AuthService:
             if user["email"] == email:
                 return user
         return None
+
+    def authenticate_user(self, email: str, password: str):
+        user = self.get_user_by_email(email)
+
+        if user is None:
+            return None
+
+        if not verify_password(password, user["password"]):
+            return None
+
+        return {
+            "id": user["id"],
+            "name": user["name"],
+            "email": user["email"],
+        }
 
 
 auth_service = AuthService()
