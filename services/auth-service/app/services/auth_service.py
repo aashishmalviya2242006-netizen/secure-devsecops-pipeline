@@ -38,6 +38,17 @@ class AuthService:
                 return user
         return None
 
+    def get_user_by_id(self, user_id: int):
+        for user in self.users:
+            if user["id"] == user_id:
+                return {
+                   "id": user["id"],
+                   "name": user["name"],
+                   "email": user["email"],
+            }
+
+        return None
+
     def authenticate_user(self, email: str, password: str):
         user = self.get_user_by_email(email)
 
