@@ -1,5 +1,9 @@
 from app.schemas import RegisterRequest
-from app.core.password import hash_password, verify_password
+from app.core import (
+    hash_password,
+    verify_password,
+    create_access_token,
+)
 
 
 class AuthService:
@@ -43,11 +47,16 @@ class AuthService:
         if not verify_password(password, user["password"]):
             return None
 
-        return {
-            "id": user["id"],
-            "name": user["name"],
+        access_token = create_access_token(
+          {
+            "sub": str(user["id"]),
             "email": user["email"],
-        }
+          }
+         )
 
+        return {
+             "access_token": access_token,
+             "token_type": "bearer",
+         }
 
 auth_service = AuthService()

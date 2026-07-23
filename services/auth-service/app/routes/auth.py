@@ -1,6 +1,12 @@
+from fastapi import Depends
+from app.core import get_current_user
 from fastapi import APIRouter, HTTPException, status
 
-from app.schemas import RegisterRequest, LoginRequest
+from app.schemas import (
+        RegisterRequest,
+        LoginRequest,
+        TokenResponse,
+)
 from app.services.auth_service import auth_service
 
 router = APIRouter(
@@ -32,18 +38,27 @@ def register(user: RegisterRequest):
 
     return registered_user
 
-@router.post("/login")
+@router.post(
+    "/login",
+    response_model=TokenResponse,
+)
 def login(user: LoginRequest):
 
-    authenticated_user = auth_service.authenticate_user(
+    token = auth_service.authenticate_user(
         user.email,
-        user.password
+        user.password,
     )
 
-    if authenticated_user is None:
+    if token is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password"
+            detail="Invalid email or password",
         )
 
-    return authenticated_user
+    return token
+
+@router.get(
+    "/me",
+)
+def get_me(current_user=Depends(get_current_user)):
+    return current_user
