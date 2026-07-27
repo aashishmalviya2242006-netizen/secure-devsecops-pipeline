@@ -15,6 +15,3 @@ from .jwt import (
     verify_access_token,
 )
 
-from .dependencies import (
-    get_current_user,
-)
