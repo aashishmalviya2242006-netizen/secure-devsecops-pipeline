@@ -21,6 +21,13 @@ def auth_home():
         "message": "Authentication service is working"
     }
 
+@router.get("/health")
+def health():
+    return {
+        "status": "healthy",
+        "service": "auth-service"
+    }
+
 
 @router.post(
     "/register",

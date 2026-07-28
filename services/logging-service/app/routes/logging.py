@@ -11,6 +11,13 @@ router = APIRouter(
     tags=["Logs"],
 )
 
+@router.get("/health")
+def health():
+    return {
+        "status": "healthy",
+        "service": "logging-service"
+    }
+
 
 @router.post("/", response_model=LogResponse)
 def create_log(log: LogCreate):

@@ -13,6 +13,13 @@ router = APIRouter(
 def get_users():
     return user_service.get_all_users()
 
+@router.get("/health")
+def health():
+    return {
+        "status": "healthy",
+        "service": "user-service"
+    }
+
 
 @router.get("/{user_id}", response_model=User)
 def get_user(user_id: int):

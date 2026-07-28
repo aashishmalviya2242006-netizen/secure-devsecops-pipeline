@@ -11,6 +11,13 @@ router = APIRouter(
     tags=["Notifications"],
 )
 
+@router.get("/health")
+def health():
+    return {
+        "status": "healthy",
+        "service": "notification-service"
+    }
+
 
 @router.post("/", response_model=NotificationResponse)
 def create_notification(notification: NotificationCreate):
