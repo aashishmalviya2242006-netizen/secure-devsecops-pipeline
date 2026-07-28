@@ -4,6 +4,13 @@ from app.services.gateway_service import forward_request
 
 router = APIRouter()
 
+@router.get("/health")
+async def health():
+    return {
+        "status": "healthy",
+        "service": "gateway-service"
+    }
+
 
 @router.api_route(
     "/{service}/{path:path}",
