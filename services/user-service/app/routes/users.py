@@ -13,6 +13,7 @@ router = APIRouter(
 def get_users():
     return user_service.get_all_users()
 
+
 @router.get("/health")
 def health():
     return {
@@ -39,8 +40,8 @@ def get_user(user_id: int):
     response_model=User,
     status_code=status.HTTP_201_CREATED
 )
-def create_user(user: UserCreate):
-    return user_service.create_user(user)
+async def create_user(user: UserCreate):
+    return await user_service.create_user(user)
 
 
 @router.put("/{user_id}", response_model=User)

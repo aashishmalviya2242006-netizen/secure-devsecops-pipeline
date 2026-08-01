@@ -1,3 +1,6 @@
+from app.clients.logging_client import send_log
+from app.clients.notification_client import send_notification
+
 from app.schemas.user import User, UserCreate, UserUpdate
 
 
@@ -15,7 +18,7 @@ class UserService:
                 return user
         return None
 
-    def create_user(self, user: UserCreate):
+    async def create_user(self, user: UserCreate):
         new_user = User(
             id=self.next_id,
             name=user.name,
@@ -24,6 +27,26 @@ class UserService:
 
         self.users.append(new_user)
         self.next_id += 1
+
+        # Send log
+        try:
+            await send_log(
+                service="user-service",
+                level="INFO",
+                message=f"User '{new_user.name}' created successfully"
+            )
+        except Exception as e:
+            print(f"Logging Service Error: {e}")
+
+        # Send welcome notification
+        try:
+            await send_notification(
+                user_id=new_user.id,
+                title="Welcome",
+                message=f"Welcome {new_user.name}! Your account has been created successfully."
+            )
+        except Exception as e:
+            print(f"Notification Service Error: {e}")
 
         return new_user
 
