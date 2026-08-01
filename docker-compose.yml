@@ -1,0 +1,123 @@
+services:
+  user-service:
+    build:
+      context: ./services/user-service
+      dockerfile: ../../docker/user-service/Dockerfile
+    image: user-service:v1
+    container_name: user-service
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./services/user-service:/app
+    environment:
+      APP_ENV: development
+      APP_NAME: User Service
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    networks:
+      - devsecops-network
+
+  auth-service:
+    build:
+      context: ./services/auth-service
+      dockerfile: ../../docker/auth-service/Dockerfile
+    image: auth-service:v1
+    container_name: auth-service
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./services/auth-service:/app
+    environment:
+      APP_ENV: development
+      APP_NAME: Auth Service
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    networks:
+      - devsecops-network
+
+  notification-service:
+    build:
+      context: ./services/notification-service
+      dockerfile: ../../docker/notification-service/Dockerfile
+    image: notification-service:v1
+    container_name: notification-service
+    ports:
+      - "8003:8003"
+    volumes:
+      - ./services/notification-service:/app
+    environment:
+      APP_ENV: development
+      APP_NAME: Notification Service
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    networks:
+      - devsecops-network
+
+  logging-service:
+    build:
+      context: ./services/logging-service
+      dockerfile: ../../docker/logging-service/Dockerfile
+    image: logging-service:v1
+    container_name: logging-service
+    ports:
+      - "8004:8004"
+    volumes:
+      - ./services/logging-service:/app
+    environment:
+      APP_ENV: development
+      APP_NAME: Logging Service
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    networks:
+      - devsecops-network
+
+  gateway-service:
+    build:
+      context: ./services/gateway-service
+      dockerfile: ../../docker/gateway-service/Dockerfile
+    image: gateway-service:v1
+    container_name: gateway-service
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./services/gateway-service:/app
+    environment:
+      APP_ENV: development
+      APP_NAME: Gateway Service
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    depends_on:
+      user-service:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+      notification-service:
+        condition: service_healthy
+      logging-service:
+        condition: service_healthy
+    networks:
+      - devsecops-network
+
+networks:
+  devsecops-network:
+    driver: bridge

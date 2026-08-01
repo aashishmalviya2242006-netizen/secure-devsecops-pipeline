@@ -1,8 +1,10 @@
 from fastapi import APIRouter, HTTPException, Request, Response
+from json import JSONDecodeError
 
 from app.services.gateway_service import forward_request
 
 router = APIRouter()
+
 
 @router.get("/health")
 async def health():
@@ -12,23 +14,23 @@ async def health():
     }
 
 
-@router.api_route(
-    "/{service}/{path:path}",
-    methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
-)
-async def gateway(
+async def gateway_handler(
     request: Request,
     service: str,
     path: str,
 ):
     """
-    Forward requests to the appropriate microservice.
+    Common handler for forwarding requests to the appropriate microservice.
     """
 
     body = None
 
+    # Read request body only for methods that can contain one
     if request.method in ("POST", "PUT", "PATCH"):
-        body = await request.json()
+        try:
+            body = await request.json()
+        except JSONDecodeError:
+            body = None
 
     # Filter headers before forwarding
     headers = {
@@ -65,3 +67,58 @@ async def gateway(
             "application/json",
         ),
     )
+
+
+# -------------------- GET --------------------
+
+@router.get("/{service}/{path:path}")
+async def gateway_get(
+    request: Request,
+    service: str,
+    path: str,
+):
+    return await gateway_handler(request, service, path)
+
+
+# -------------------- POST --------------------
+
+@router.post("/{service}/{path:path}")
+async def gateway_post(
+    request: Request,
+    service: str,
+    path: str,
+):
+    return await gateway_handler(request, service, path)
+
+
+# -------------------- PUT --------------------
+
+@router.put("/{service}/{path:path}")
+async def gateway_put(
+    request: Request,
+    service: str,
+    path: str,
+):
+    return await gateway_handler(request, service, path)
+
+
+# -------------------- PATCH --------------------
+
+@router.patch("/{service}/{path:path}")
+async def gateway_patch(
+    request: Request,
+    service: str,
+    path: str,
+):
+    return await gateway_handler(request, service, path)
+
+
+# -------------------- DELETE --------------------
+
+@router.delete("/{service}/{path:path}")
+async def gateway_delete(
+    request: Request,
+    service: str,
+    path: str,
+):
+    return await gateway_handler(request, service, path)
