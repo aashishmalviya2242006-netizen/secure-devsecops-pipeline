@@ -1,17 +1,4 @@
-__pycache__/
-*.pyc
-*.log
-.env
-venv/
-.venv/
-.pytest_cache/
-.coverage
-htmlcov/
-dist/
-build/
-*.egg-info/
-.idea/
-.vscode/# ===========================
+# ===========================
 # Python
 # ===========================
 __pycache__/
@@ -25,6 +12,7 @@ __pycache__/
 .coverage
 coverage.xml
 htmlcov/
+*-test-results.xml
 
 # ===========================
 # Virtual Environment
@@ -73,7 +61,7 @@ Thumbs.db
 *.tar
 
 # ===========================
-# Terraform (AWS Phase)
+# Terraform
 # ===========================
 .terraform/
 *.tfstate

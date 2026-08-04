@@ -1,11 +1,19 @@
+from unittest.mock import AsyncMock, patch
+
+import pytest
+
 from app.schemas.user import UserCreate, UserUpdate
 from app.services.user_service import UserService
 
 
-def test_create_user():
+@pytest.mark.asyncio
+@patch("app.services.user_service.send_notification", new_callable=AsyncMock)
+@patch("app.services.user_service.send_log", new_callable=AsyncMock)
+async def test_create_user(mock_send_log, mock_send_notification):
+
     service = UserService()
 
-    user = service.create_user(
+    user = await service.create_user(
         UserCreate(
             name="Aashish",
             email="aashish@gmail.com"
@@ -16,11 +24,18 @@ def test_create_user():
     assert user.name == "Aashish"
     assert user.email == "aashish@gmail.com"
 
+    mock_send_log.assert_awaited_once()
+    mock_send_notification.assert_awaited_once()
 
-def test_get_user():
+
+@pytest.mark.asyncio
+@patch("app.services.user_service.send_notification", new_callable=AsyncMock)
+@patch("app.services.user_service.send_log", new_callable=AsyncMock)
+async def test_get_user(mock_send_log, mock_send_notification):
+
     service = UserService()
 
-    created = service.create_user(
+    created = await service.create_user(
         UserCreate(
             name="John",
             email="john@example.com"
@@ -33,10 +48,14 @@ def test_get_user():
     assert user.name == "John"
 
 
-def test_update_user():
+@pytest.mark.asyncio
+@patch("app.services.user_service.send_notification", new_callable=AsyncMock)
+@patch("app.services.user_service.send_log", new_callable=AsyncMock)
+async def test_update_user(mock_send_log, mock_send_notification):
+
     service = UserService()
 
-    created = service.create_user(
+    created = await service.create_user(
         UserCreate(
             name="John",
             email="john@example.com"
@@ -52,10 +71,14 @@ def test_update_user():
     assert updated.name == "Johnny"
 
 
-def test_delete_user():
+@pytest.mark.asyncio
+@patch("app.services.user_service.send_notification", new_callable=AsyncMock)
+@patch("app.services.user_service.send_log", new_callable=AsyncMock)
+async def test_delete_user(mock_send_log, mock_send_notification):
+
     service = UserService()
 
-    created = service.create_user(
+    created = await service.create_user(
         UserCreate(
             name="John",
             email="john@example.com"

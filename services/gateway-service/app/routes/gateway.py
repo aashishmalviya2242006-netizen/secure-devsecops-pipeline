@@ -5,6 +5,16 @@ from app.services.gateway_service import forward_request
 
 router = APIRouter()
 
+@router.get("/")
+async def root():
+    return {
+        "service": "Gateway Service",
+        "project": "Secure DevSecOps Pipeline",
+        "status": "healthy",
+        "version": "1.0.0",
+        "message": "Welcome to the Secure DevSecOps API Gateway"
+    }
+
 
 @router.get("/health")
 async def health():
