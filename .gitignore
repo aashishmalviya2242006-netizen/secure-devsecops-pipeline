@@ -82,3 +82,8 @@ kubeconfig
 *.crt
 *.p12
 *.jks
+
+# SonarQube
+security/sonarqube/data/
+security/sonarqube/logs/
+security/sonarqube/extensions/plugins/
