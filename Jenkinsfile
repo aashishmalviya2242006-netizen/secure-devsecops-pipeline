@@ -27,8 +27,8 @@ pipeline {
                 dir('services/user-service') {
                     sh '''
                         set -e
-                        rm -rf .venv
 
+                        rm -rf .venv
                         python3 -m venv .venv
                         . .venv/bin/activate
 
@@ -46,8 +46,8 @@ pipeline {
                 dir('services/auth-service') {
                     sh '''
                         set -e
-                        rm -rf .venv
 
+                        rm -rf .venv
                         python3 -m venv .venv
                         . .venv/bin/activate
 
@@ -65,8 +65,8 @@ pipeline {
                 dir('services/notification-service') {
                     sh '''
                         set -e
-                        rm -rf .venv
 
+                        rm -rf .venv
                         python3 -m venv .venv
                         . .venv/bin/activate
 
@@ -84,8 +84,8 @@ pipeline {
                 dir('services/logging-service') {
                     sh '''
                         set -e
-                        rm -rf .venv
 
+                        rm -rf .venv
                         python3 -m venv .venv
                         . .venv/bin/activate
 
@@ -103,8 +103,8 @@ pipeline {
                 dir('services/gateway-service') {
                     sh '''
                         set -e
-                        rm -rf .venv
 
+                        rm -rf .venv
                         python3 -m venv .venv
                         . .venv/bin/activate
 
@@ -117,25 +117,46 @@ pipeline {
             }
         }
 
-       stage('SonarQube Analysis') {
-           steps {
-               script {
-                   def scannerHome = tool 'Sonar'
-                   withSonarQubeEnv('Sonar') {
-                       sh """
-                           ${scannerHome}/bin/sonar-scanner
-                       """
-                   }
-               }
-          }
-      }
+        stage('SonarQube Analysis') {
+            steps {
+                script {
+                    def scannerHome = tool 'Sonar'
+
+                    withSonarQubeEnv('Sonar') {
+                        sh """
+                            ${scannerHome}/bin/sonar-scanner
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('OWASP Dependency Check') {
+            steps {
+                dependencyCheck(
+                    odcInstallation: 'DependencyCheck',
+                    additionalArguments: '''
+                        --scan .
+                        --format HTML
+                        --format XML
+                        --out security/dependency-check/reports
+                    '''
+                )
+            }
+        }
 
     }
 
     post {
 
         always {
-             junit allowEmptyResults: false, testResults: '**/*-test-results.xml'
+
+            junit allowEmptyResults: false,
+                  testResults: '**/*-test-results.xml'
+
+            dependencyCheckPublisher(
+                pattern: 'security/dependency-check/reports/dependency-check-report.xml'
+            )
 
             cleanWs(
                 deleteDirs: true,
@@ -147,7 +168,9 @@ pipeline {
             echo '''
 =========================================
 CI Pipeline completed successfully.
-All microservice unit tests passed.
+All unit tests passed.
+SonarQube analysis completed.
+Dependency Check completed.
 =========================================
 '''
         }
