@@ -18,6 +18,7 @@ pipeline {
                     python3 --version
                     pip3 --version
                     docker --version
+                    trivy --version
                 '''
             }
         }
@@ -148,6 +149,8 @@ pipeline {
         stage('Trivy Filesystem Scan') {
             steps {
                 sh '''
+                    set -e
+
                     mkdir -p security/trivy/reports
 
                     trivy fs \
@@ -157,7 +160,8 @@ pipeline {
 
                     trivy fs \
                         --format table \
-                        . > security/trivy/reports/trivy-report.txt
+                        --output security/trivy/reports/trivy-report.txt \
+                        .
                 '''
             }
         }
@@ -199,6 +203,45 @@ pipeline {
             }
         }
 
+        stage('Trivy Image Scan') {
+            steps {
+                sh '''
+                    set -e
+
+                    mkdir -p security/trivy/image-reports
+
+                    echo "========== Scanning Docker Images =========="
+
+                    trivy image \
+                        --format table \
+                        --output security/trivy/image-reports/user-service-report.txt \
+                        user-service:v1
+
+                    trivy image \
+                        --format table \
+                        --output security/trivy/image-reports/auth-service-report.txt \
+                        auth-service:v1
+
+                    trivy image \
+                        --format table \
+                        --output security/trivy/image-reports/gateway-service-report.txt \
+                        gateway-service:v1
+
+                    trivy image \
+                        --format table \
+                        --output security/trivy/image-reports/logging-service-report.txt \
+                        logging-service:v1
+
+                    trivy image \
+                        --format table \
+                        --output security/trivy/image-reports/notification-service-report.txt \
+                        notification-service:v1
+
+                    echo "========== Trivy Image Scan Completed =========="
+                '''
+            }
+        }
+
     }
 
     post {
@@ -213,7 +256,10 @@ pipeline {
             )
 
             archiveArtifacts(
-                artifacts: 'security/trivy/reports/*',
+                artifacts: '''
+                    security/trivy/reports/*
+                    security/trivy/image-reports/*
+                ''',
                 fingerprint: true
             )
 
@@ -225,27 +271,31 @@ pipeline {
 
         success {
             echo '''
-=========================================
+====================================================
+
 CI Pipeline completed successfully.
 
+✔ Environment Verification
 ✔ Unit Tests Passed
-✔ SonarQube Analysis Completed
-✔ OWASP Dependency Check Completed
-✔ Trivy Filesystem Scan Completed
-✔ Docker Images Built Successfully
+✔ SonarQube Analysis
+✔ OWASP Dependency Check
+✔ Trivy Filesystem Scan
+✔ Docker Images Built
+✔ Trivy Image Scan
 
-=========================================
+====================================================
 '''
         }
 
         failure {
             echo '''
-=========================================
+====================================================
+
 CI Pipeline Failed.
 
 Review the failed stage and console output.
 
-=========================================
+====================================================
 '''
         }
     }
