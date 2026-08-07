@@ -145,6 +145,23 @@ pipeline {
             }
         }
 
+        stage('Trivy Filesystem Scan') {
+            steps {
+                sh '''
+                    mkdir -p security/trivy/reports
+
+                    trivy fs \
+                        --format json \
+                        --output security/trivy/reports/trivy-report.json \
+                        .
+
+                    trivy fs \
+                        --format table \
+                        . > security/trivy/reports/trivy-report.txt
+                '''
+            }
+        }
+
     }
 
     post {
@@ -156,6 +173,11 @@ pipeline {
 
             dependencyCheckPublisher(
                 pattern: 'security/dependency-check/reports/dependency-check-report.xml'
+            )
+
+            archiveArtifacts(
+                artifacts: 'security/trivy/reports/*',
+                fingerprint: true
             )
 
             cleanWs(
@@ -170,7 +192,8 @@ pipeline {
 CI Pipeline completed successfully.
 All unit tests passed.
 SonarQube analysis completed.
-Dependency Check completed.
+OWASP Dependency Check completed.
+Trivy Filesystem Scan completed.
 =========================================
 '''
         }
