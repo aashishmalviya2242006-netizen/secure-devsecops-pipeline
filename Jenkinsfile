@@ -162,6 +162,43 @@ pipeline {
             }
         }
 
+        stage('Build Docker Images') {
+            steps {
+                sh '''
+                    set -e
+
+                    echo "========== Building Docker Images =========="
+
+                    docker build \
+                        -f docker/user-service/Dockerfile \
+                        -t user-service:v1 \
+                        services/user-service
+
+                    docker build \
+                        -f docker/auth-service/Dockerfile \
+                        -t auth-service:v1 \
+                        services/auth-service
+
+                    docker build \
+                        -f docker/gateway-service/Dockerfile \
+                        -t gateway-service:v1 \
+                        services/gateway-service
+
+                    docker build \
+                        -f docker/logging-service/Dockerfile \
+                        -t logging-service:v1 \
+                        services/logging-service
+
+                    docker build \
+                        -f docker/notification-service/Dockerfile \
+                        -t notification-service:v1 \
+                        services/notification-service
+
+                    echo "========== Docker Images Built Successfully =========="
+                '''
+            }
+        }
+
     }
 
     post {
@@ -190,10 +227,13 @@ pipeline {
             echo '''
 =========================================
 CI Pipeline completed successfully.
-All unit tests passed.
-SonarQube analysis completed.
-OWASP Dependency Check completed.
-Trivy Filesystem Scan completed.
+
+✔ Unit Tests Passed
+✔ SonarQube Analysis Completed
+✔ OWASP Dependency Check Completed
+✔ Trivy Filesystem Scan Completed
+✔ Docker Images Built Successfully
+
 =========================================
 '''
         }
@@ -201,8 +241,10 @@ Trivy Filesystem Scan completed.
         failure {
             echo '''
 =========================================
-CI Pipeline failed.
+CI Pipeline Failed.
+
 Review the failed stage and console output.
+
 =========================================
 '''
         }
