@@ -256,10 +256,7 @@ pipeline {
             )
 
             archiveArtifacts(
-                artifacts: '''
-                    security/trivy/reports/*
-                    security/trivy/image-reports/*
-                ''',
+                artifacts: 'security/trivy/reports/*,security/trivy/image-reports/*',
                 fingerprint: true
             )
 
