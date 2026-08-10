@@ -213,28 +213,28 @@ pipeline {
                     echo "========== Scanning Docker Images =========="
 
                     trivy image \
-                        --format table \
-                        --output security/trivy/image-reports/user-service-report.txt \
+                        --format json \
+                        --output security/trivy/image-reports/user-service-report.json \
                         user-service:v1
 
                     trivy image \
-                        --format table \
-                        --output security/trivy/image-reports/auth-service-report.txt \
+                        --format json \
+                        --output security/trivy/image-reports/auth-service-report.json \
                         auth-service:v1
 
                     trivy image \
-                        --format table \
-                        --output security/trivy/image-reports/gateway-service-report.txt \
+                        --format json \
+                        --output security/trivy/image-reports/gateway-service-report.json \
                         gateway-service:v1
 
                     trivy image \
-                        --format table \
-                        --output security/trivy/image-reports/logging-service-report.txt \
+                        --format json \
+                        --output security/trivy/image-reports/logging-service-report.json \
                         logging-service:v1
 
                     trivy image \
-                        --format table \
-                        --output security/trivy/image-reports/notification-service-report.txt \
+                        --format json \
+                        --output security/trivy/image-reports/notification-service-report.json \
                         notification-service:v1
 
                     echo "========== Trivy Image Scan Completed =========="
