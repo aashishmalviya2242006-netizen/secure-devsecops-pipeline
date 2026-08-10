@@ -153,15 +153,28 @@ pipeline {
 
                     mkdir -p security/trivy/reports
 
+                    echo "========== Trivy Filesystem Scan =========="
+
+                    echo "Scanning for HIGH and CRITICAL vulnerabilities..."
+
                     trivy fs \
+                        --scanners vuln \
+                        --severity HIGH,CRITICAL \
                         --format json \
                         --output security/trivy/reports/trivy-report.json \
+                        --exit-code 1 \
                         .
 
                     trivy fs \
+                        --scanners vuln \
+                        --severity HIGH,CRITICAL \
                         --format table \
                         --output security/trivy/reports/trivy-report.txt \
+                        --exit-code 1 \
                         .
+
+                    echo "========== Trivy Filesystem Scan Passed =========="
+                    echo "No HIGH or CRITICAL vulnerabilities found."
                 '''
             }
         }
@@ -212,32 +225,60 @@ pipeline {
 
                     echo "========== Scanning Docker Images =========="
 
+                    echo "Security policy: HIGH and CRITICAL vulnerabilities will fail the pipeline."
+
+                    echo "========== Scanning user-service:v1 =========="
+
                     trivy image \
+                        --scanners vuln \
+                        --severity HIGH,CRITICAL \
                         --format json \
                         --output security/trivy/image-reports/user-service-report.json \
+                        --exit-code 1 \
                         user-service:v1
 
+                    echo "========== Scanning auth-service:v1 =========="
+
                     trivy image \
+                        --scanners vuln \
+                        --severity HIGH,CRITICAL \
                         --format json \
                         --output security/trivy/image-reports/auth-service-report.json \
+                        --exit-code 1 \
                         auth-service:v1
 
+                    echo "========== Scanning gateway-service:v1 =========="
+
                     trivy image \
+                        --scanners vuln \
+                        --severity HIGH,CRITICAL \
                         --format json \
                         --output security/trivy/image-reports/gateway-service-report.json \
+                        --exit-code 1 \
                         gateway-service:v1
 
+                    echo "========== Scanning logging-service:v1 =========="
+
                     trivy image \
+                        --scanners vuln \
+                        --severity HIGH,CRITICAL \
                         --format json \
                         --output security/trivy/image-reports/logging-service-report.json \
+                        --exit-code 1 \
                         logging-service:v1
 
+                    echo "========== Scanning notification-service:v1 =========="
+
                     trivy image \
+                        --scanners vuln \
+                        --severity HIGH,CRITICAL \
                         --format json \
                         --output security/trivy/image-reports/notification-service-report.json \
+                        --exit-code 1 \
                         notification-service:v1
 
-                    echo "========== Trivy Image Scan Completed =========="
+                    echo "========== Trivy Image Scan Passed =========="
+                    echo "No HIGH or CRITICAL vulnerabilities found in Docker images."
                 '''
             }
         }
@@ -291,6 +332,9 @@ CI Pipeline completed successfully.
 CI Pipeline Failed.
 
 Review the failed stage and console output.
+
+If Trivy failed, check the HIGH/CRITICAL vulnerabilities
+reported in the Trivy scan output and archived reports.
 
 ====================================================
 '''
