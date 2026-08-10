@@ -1,7 +1,7 @@
 from datetime import timedelta
 
 # Secret key used to sign JWTs
-SECRET_KEY = "your_super_secret_key"
+SECRET_KEY = "your_super_secret_key_for_devsecops_project_2026"
 
 # JWT signing algorithm
 ALGORITHM = "HS256"

@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
-from jose import JWTError, jwt
+import jwt
+from jwt.exceptions import PyJWTError
 
 from app.core.config import (
     SECRET_KEY,
@@ -43,5 +44,5 @@ def verify_access_token(token: str):
 
         return payload
 
-    except JWTError:
+    except PyJWTError:
         return None
