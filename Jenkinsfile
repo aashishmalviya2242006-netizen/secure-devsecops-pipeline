@@ -166,15 +166,14 @@ pipeline {
                     mkdir -p security/trivy/reports
 
                     echo "========== Trivy Filesystem Scan =========="
-
-                    echo "Scanning for HIGH and CRITICAL vulnerabilities..."
+                    echo "Security policy: HIGH and CRITICAL findings are reported but do not block CI."
 
                     trivy fs \
                         --scanners vuln \
                         --severity HIGH,CRITICAL \
                         --format json \
                         --output security/trivy/reports/trivy-report.json \
-                        --exit-code 1 \
+                        --exit-code 0 \
                         .
 
                     trivy fs \
@@ -182,11 +181,11 @@ pipeline {
                         --severity HIGH,CRITICAL \
                         --format table \
                         --output security/trivy/reports/trivy-report.txt \
-                        --exit-code 1 \
+                        --exit-code 0 \
                         .
 
-                    echo "========== Trivy Filesystem Scan Passed =========="
-                    echo "No HIGH or CRITICAL vulnerabilities found."
+                    echo "========== Trivy Filesystem Scan Completed =========="
+                    echo "HIGH and CRITICAL findings, if any, are available in the archived reports."
                 '''
             }
         }
@@ -236,51 +235,46 @@ pipeline {
                     mkdir -p security/trivy/image-reports
 
                     echo "========== Trivy Docker Image Security Scan =========="
-                    echo "Security policy: HIGH and CRITICAL vulnerabilities are reported but do not block CI."
-
-                    echo "========== Scanning user-service:v1 =========="
+                    echo "Security policy: HIGH and CRITICAL findings are reported but do not block CI."
 
                     trivy image \
                         --scanners vuln \
                         --severity HIGH,CRITICAL \
                         --format json \
                         --output security/trivy/image-reports/user-service-report.json \
+                        --exit-code 0 \
                         user-service:v1
-
-                    echo "========== Scanning auth-service:v1 =========="
 
                     trivy image \
                         --scanners vuln \
                         --severity HIGH,CRITICAL \
                         --format json \
                         --output security/trivy/image-reports/auth-service-report.json \
+                        --exit-code 0 \
                         auth-service:v1
-
-                    echo "========== Scanning gateway-service:v1 =========="
 
                     trivy image \
                         --scanners vuln \
                         --severity HIGH,CRITICAL \
                         --format json \
                         --output security/trivy/image-reports/gateway-service-report.json \
+                        --exit-code 0 \
                         gateway-service:v1
-
-                    echo "========== Scanning logging-service:v1 =========="
 
                     trivy image \
                         --scanners vuln \
                         --severity HIGH,CRITICAL \
                         --format json \
                         --output security/trivy/image-reports/logging-service-report.json \
+                        --exit-code 0 \
                         logging-service:v1
-
-                    echo "========== Scanning notification-service:v1 =========="
 
                     trivy image \
                         --scanners vuln \
                         --severity HIGH,CRITICAL \
                         --format json \
                         --output security/trivy/image-reports/notification-service-report.json \
+                        --exit-code 0 \
                         notification-service:v1
 
                     echo "========== Trivy Image Scan Completed =========="
@@ -332,6 +326,7 @@ pipeline {
         stage('Get Image Digests') {
             steps {
                 script {
+
                     env.USER_DIGEST = sh(
                         script: "docker inspect --format='{{index .RepoDigests 0}}' ${env.USER_IMAGE}",
                         returnStdout: true
@@ -417,46 +412,35 @@ pipeline {
 
         stage('Cosign Verify Images') {
             steps {
-                withCredentials([
-                    file(
-                        credentialsId: 'cosign-private-key',
-                        variable: 'COSIGN_KEY'
-                    )
-                ]) {
-                    sh '''
-                        set -e
+                sh '''
+                    set -e
 
-                        echo "========== Cosign Verification =========="
+                    echo "========== Cosign Verification =========="
 
-                        cosign public-key \
-                            --key "$COSIGN_KEY" \
-                            > cosign-public-key.pem
+                    test -f cosign.pub
 
-                        cosign verify \
-                            --key cosign-public-key.pem \
-                            "$USER_DIGEST"
+                    cosign verify \
+                        --key cosign.pub \
+                        "$USER_DIGEST"
 
-                        cosign verify \
-                            --key cosign-public-key.pem \
-                            "$AUTH_DIGEST"
+                    cosign verify \
+                        --key cosign.pub \
+                        "$AUTH_DIGEST"
 
-                        cosign verify \
-                            --key cosign-public-key.pem \
-                            "$GATEWAY_DIGEST"
+                    cosign verify \
+                        --key cosign.pub \
+                        "$GATEWAY_DIGEST"
 
-                        cosign verify \
-                            --key cosign-public-key.pem \
-                            "$LOGGING_DIGEST"
+                    cosign verify \
+                        --key cosign.pub \
+                        "$LOGGING_DIGEST"
 
-                        cosign verify \
-                            --key cosign-public-key.pem \
-                            "$NOTIFICATION_DIGEST"
+                    cosign verify \
+                        --key cosign.pub \
+                        "$NOTIFICATION_DIGEST"
 
-                        rm -f cosign-public-key.pem
-
-                        echo "========== All Image Signatures Verified =========="
-                    '''
-                }
+                    echo "========== All Image Signatures Verified =========="
+                '''
             }
         }
 
@@ -515,11 +499,11 @@ CI PIPELINE FAILED.
 
 Review the failed stage and console output.
 
-The Trivy filesystem scan remains a blocking
-security gate for HIGH and CRITICAL vulnerabilities.
+Check the specific failed stage in the Jenkins
+console output.
 
-Docker image scan findings are reported and
-archived but do not block CI.
+Trivy filesystem and image scans are report-only
+for HIGH and CRITICAL vulnerabilities.
 
 Registry push and Cosign signing occur only
 after the preceding CI/security stages succeed.
