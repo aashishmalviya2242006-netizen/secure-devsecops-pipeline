@@ -6,6 +6,17 @@ pipeline {
         timestamps()
     }
 
+    environment {
+        DOCKER_REGISTRY = 'docker.io'
+        DOCKER_NAMESPACE = 'aashu006'
+
+        USER_IMAGE = 'aashu006/devsecops-user-service:v1'
+        AUTH_IMAGE = 'aashu006/devsecops-auth-service:v1'
+        GATEWAY_IMAGE = 'aashu006/devsecops-gateway-service:v1'
+        LOGGING_IMAGE = 'aashu006/devsecops-logging-service:v1'
+        NOTIFICATION_IMAGE = 'aashu006/devsecops-notification-service:v1'
+    }
+
     stages {
 
         stage('Verify Environment') {
@@ -19,6 +30,7 @@ pipeline {
                     pip3 --version
                     docker --version
                     trivy --version
+                    cosign version
                 '''
             }
         }
@@ -277,6 +289,177 @@ pipeline {
             }
         }
 
+        stage('Push Images to Registry') {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'dockerhub-credentials',
+                        usernameVariable: 'DOCKERHUB_USERNAME',
+                        passwordVariable: 'DOCKERHUB_PASSWORD'
+                    )
+                ]) {
+                    sh '''
+                        set -e
+
+                        echo "========== Docker Registry Login =========="
+
+                        echo "$DOCKERHUB_PASSWORD" | docker login \
+                            -u "$DOCKERHUB_USERNAME" \
+                            --password-stdin
+
+                        echo "========== Tagging Images =========="
+
+                        docker tag user-service:v1 "$USER_IMAGE"
+                        docker tag auth-service:v1 "$AUTH_IMAGE"
+                        docker tag gateway-service:v1 "$GATEWAY_IMAGE"
+                        docker tag logging-service:v1 "$LOGGING_IMAGE"
+                        docker tag notification-service:v1 "$NOTIFICATION_IMAGE"
+
+                        echo "========== Pushing Images =========="
+
+                        docker push "$USER_IMAGE"
+                        docker push "$AUTH_IMAGE"
+                        docker push "$GATEWAY_IMAGE"
+                        docker push "$LOGGING_IMAGE"
+                        docker push "$NOTIFICATION_IMAGE"
+
+                        echo "========== Registry Push Completed =========="
+                    '''
+                }
+            }
+        }
+
+        stage('Get Image Digests') {
+            steps {
+                script {
+                    env.USER_DIGEST = sh(
+                        script: "docker inspect --format='{{index .RepoDigests 0}}' ${env.USER_IMAGE}",
+                        returnStdout: true
+                    ).trim()
+
+                    env.AUTH_DIGEST = sh(
+                        script: "docker inspect --format='{{index .RepoDigests 0}}' ${env.AUTH_IMAGE}",
+                        returnStdout: true
+                    ).trim()
+
+                    env.GATEWAY_DIGEST = sh(
+                        script: "docker inspect --format='{{index .RepoDigests 0}}' ${env.GATEWAY_IMAGE}",
+                        returnStdout: true
+                    ).trim()
+
+                    env.LOGGING_DIGEST = sh(
+                        script: "docker inspect --format='{{index .RepoDigests 0}}' ${env.LOGGING_IMAGE}",
+                        returnStdout: true
+                    ).trim()
+
+                    env.NOTIFICATION_DIGEST = sh(
+                        script: "docker inspect --format='{{index .RepoDigests 0}}' ${env.NOTIFICATION_IMAGE}",
+                        returnStdout: true
+                    ).trim()
+
+                    echo "========== IMAGE DIGESTS =========="
+                    echo "User:         ${env.USER_DIGEST}"
+                    echo "Auth:         ${env.AUTH_DIGEST}"
+                    echo "Gateway:      ${env.GATEWAY_DIGEST}"
+                    echo "Logging:      ${env.LOGGING_DIGEST}"
+                    echo "Notification: ${env.NOTIFICATION_DIGEST}"
+                }
+            }
+        }
+
+        stage('Cosign Sign Images') {
+            steps {
+                withCredentials([
+                    file(
+                        credentialsId: 'cosign-private-key',
+                        variable: 'COSIGN_KEY'
+                    ),
+                    string(
+                        credentialsId: 'cosign-key-password',
+                        variable: 'COSIGN_PASSWORD'
+                    )
+                ]) {
+                    sh '''
+                        set -e
+
+                        echo "========== Cosign Signing =========="
+
+                        cosign sign \
+                            --yes \
+                            --key "$COSIGN_KEY" \
+                            "$USER_DIGEST"
+
+                        cosign sign \
+                            --yes \
+                            --key "$COSIGN_KEY" \
+                            "$AUTH_DIGEST"
+
+                        cosign sign \
+                            --yes \
+                            --key "$COSIGN_KEY" \
+                            "$GATEWAY_DIGEST"
+
+                        cosign sign \
+                            --yes \
+                            --key "$COSIGN_KEY" \
+                            "$LOGGING_DIGEST"
+
+                        cosign sign \
+                            --yes \
+                            --key "$COSIGN_KEY" \
+                            "$NOTIFICATION_DIGEST"
+
+                        echo "========== All Images Signed Successfully =========="
+                    '''
+                }
+            }
+        }
+
+        stage('Cosign Verify Images') {
+            steps {
+                withCredentials([
+                    file(
+                        credentialsId: 'cosign-private-key',
+                        variable: 'COSIGN_KEY'
+                    )
+                ]) {
+                    sh '''
+                        set -e
+
+                        echo "========== Cosign Verification =========="
+
+                        cosign public-key \
+                            --key "$COSIGN_KEY" \
+                            > cosign-public-key.pem
+
+                        cosign verify \
+                            --key cosign-public-key.pem \
+                            "$USER_DIGEST"
+
+                        cosign verify \
+                            --key cosign-public-key.pem \
+                            "$AUTH_DIGEST"
+
+                        cosign verify \
+                            --key cosign-public-key.pem \
+                            "$GATEWAY_DIGEST"
+
+                        cosign verify \
+                            --key cosign-public-key.pem \
+                            "$LOGGING_DIGEST"
+
+                        cosign verify \
+                            --key cosign-public-key.pem \
+                            "$NOTIFICATION_DIGEST"
+
+                        rm -f cosign-public-key.pem
+
+                        echo "========== All Image Signatures Verified =========="
+                    '''
+                }
+            }
+        }
+
     }
 
     post {
@@ -305,7 +488,7 @@ pipeline {
             echo '''
 ====================================================
 
-CI Pipeline completed successfully.
+CI + SECURE ARTIFACT PIPELINE COMPLETED.
 
 ✔ Environment Verification
 ✔ Unit Tests Passed
@@ -314,6 +497,10 @@ CI Pipeline completed successfully.
 ✔ Trivy Filesystem Scan
 ✔ Docker Images Built
 ✔ Trivy Image Security Scan
+✔ Images Pushed to Docker Hub
+✔ Immutable Image Digests Generated
+✔ Images Signed with Cosign
+✔ Image Signatures Verified
 ✔ Security Reports Archived
 
 ====================================================
@@ -324,7 +511,7 @@ CI Pipeline completed successfully.
             echo '''
 ====================================================
 
-CI Pipeline Failed.
+CI PIPELINE FAILED.
 
 Review the failed stage and console output.
 
@@ -333,6 +520,9 @@ security gate for HIGH and CRITICAL vulnerabilities.
 
 Docker image scan findings are reported and
 archived but do not block CI.
+
+Registry push and Cosign signing occur only
+after the preceding CI/security stages succeed.
 
 ====================================================
 '''
