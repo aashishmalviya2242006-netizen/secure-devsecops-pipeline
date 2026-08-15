@@ -23,8 +23,8 @@ spec:
       containers:
         - name: logging-service
 
-          image: logging-service:v1
-          imagePullPolicy: IfNotPresent
+          image: aashu006/devsecops-logging-service:v1
+          imagePullPolicy: Always
 
           ports:
             - containerPort: 8004

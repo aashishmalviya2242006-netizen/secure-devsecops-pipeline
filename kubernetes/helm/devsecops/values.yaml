@@ -1,0 +1,38 @@
+namespace: devsecops
+
+services:
+
+  user:
+    name: user-service
+    image: aashu006/devsecops-user-service
+    tag: v1
+    port: 8001
+    replicas: 1
+
+  auth:
+    name: auth-service
+    image: aashu006/devsecops-auth-service
+    tag: v1
+    port: 8002
+    replicas: 1
+
+  gateway:
+    name: gateway-service
+    image: aashu006/devsecops-gateway-service
+    tag: v1
+    port: 8000
+    replicas: 1
+
+  notification:
+    name: notification-service
+    image: aashu006/devsecops-notification-service
+    tag: v1
+    port: 8003
+    replicas: 1
+
+  logging:
+    name: logging-service
+    image: aashu006/devsecops-logging-service
+    tag: v1
+    port: 8004
+    replicas: 1

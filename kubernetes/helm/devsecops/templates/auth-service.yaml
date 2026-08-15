@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.services.auth.name }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: {{ .Values.services.auth.name }}
+spec:
+  replicas: {{ .Values.services.auth.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Values.services.auth.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.services.auth.name }}
+    spec:
+      containers:
+        - name: {{ .Values.services.auth.name }}
+          image: "{{ .Values.services.auth.image }}:{{ .Values.services.auth.tag }}"
+          imagePullPolicy: Always
+          ports:
+            - containerPort: {{ .Values.services.auth.port }}
+              protocol: TCP
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.services.auth.port }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.services.auth.port }}
+            initialDelaySeconds: 10
+            periodSeconds: 20
+
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.services.auth.name }}
+  namespace: {{ .Values.namespace }}
+spec:
+  selector:
+    app: {{ .Values.services.auth.name }}
+  ports:
+    - name: http
+      protocol: TCP
+      port: {{ .Values.services.auth.port }}
+      targetPort: {{ .Values.services.auth.port }}
+  type: ClusterIP

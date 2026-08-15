@@ -17,8 +17,8 @@ spec:
     spec:
       containers:
         - name: user-service
-          image: user-service:v1
-          imagePullPolicy: IfNotPresent
+          image: aashu006/devsecops-user-service:v1
+          imagePullPolicy: Always
           ports:
             - containerPort: 8001
               protocol: TCP

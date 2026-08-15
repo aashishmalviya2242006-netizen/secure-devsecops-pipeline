@@ -21,8 +21,8 @@ spec:
     spec:
       containers:
         - name: notification-service
-          image: notification-service:v1
-          imagePullPolicy: IfNotPresent
+          image: aashu006/devsecops-notification-service:v1
+          imagePullPolicy: Always
 
           ports:
             - containerPort: 8003
