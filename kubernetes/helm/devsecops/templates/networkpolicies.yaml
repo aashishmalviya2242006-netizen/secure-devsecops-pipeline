@@ -1,0 +1,281 @@
+{{/*
+============================================================
+SECURE NETWORK POLICIES
+Secure DevSecOps Pipeline
+
+Communication model:
+
+Client/Test Pod
+      |
+      | TCP 8000
+      v
+Gateway Service
+      |
+      +---- TCP 8001 ----> User Service
+      |
+      +---- TCP 8002 ----> Auth Service
+      |
+      +---- TCP 8003 ----> Notification Service
+      |
+      +---- TCP 8004 ----> Logging Service
+
+User Service
+      |
+      +---- TCP 8003 ----> Notification Service
+      |
+      +---- TCP 8004 ----> Logging Service
+
+All application pods
+      |
+      +---- DNS :53 ----> CoreDNS
+
+Everything else is denied.
+============================================================
+*/}}
+
+# ============================================================
+# 1. DEFAULT DENY - INGRESS
+# ============================================================
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: {{ .Values.namespace }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+
+---
+# ============================================================
+# 2. DEFAULT DENY - EGRESS
+# ============================================================
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-egress
+  namespace: {{ .Values.namespace }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+
+---
+# ============================================================
+# 3. ALLOW DNS
+# ============================================================
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns
+  namespace: {{ .Values.namespace }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+
+---
+# ============================================================
+# 4. CLIENT / TEST POD -> GATEWAY
+#
+# Development/test architecture:
+# Any pod inside devsecops namespace may access Gateway :8000.
+#
+# Later, when an Ingress Controller is added, this policy
+# should be restricted to the Ingress Controller.
+# ============================================================
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-gateway-ingress
+  namespace: {{ .Values.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ .Values.services.gateway.name }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.namespace }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.services.gateway.port }}
+
+---
+# ============================================================
+# 5. GATEWAY -> BACKEND SERVICES
+#
+# Gateway can communicate with:
+#   User         :8001
+#   Auth         :8002
+#   Notification :8003
+#   Logging      :8004
+# ============================================================
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: gateway-egress
+  namespace: {{ .Values.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ .Values.services.gateway.name }}
+  policyTypes:
+    - Egress
+  egress:
+
+    - to:
+        - podSelector:
+            matchLabels:
+              app: {{ .Values.services.user.name }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.services.user.port }}
+
+    - to:
+        - podSelector:
+            matchLabels:
+              app: {{ .Values.services.auth.name }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.services.auth.port }}
+
+    - to:
+        - podSelector:
+            matchLabels:
+              app: {{ .Values.services.notification.name }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.services.notification.port }}
+
+    - to:
+        - podSelector:
+            matchLabels:
+              app: {{ .Values.services.logging.name }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.services.logging.port }}
+
+---
+# ============================================================
+# 6. BACKEND SERVICES <- GATEWAY
+#
+# Only Gateway can access:
+#   User         :8001
+#   Auth         :8002
+#
+# Notification and Logging also accept User traffic,
+# which is defined in the next policy.
+# ============================================================
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: gateway-backend-ingress
+  namespace: {{ .Values.namespace }}
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values:
+          - {{ .Values.services.user.name }}
+          - {{ .Values.services.auth.name }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: {{ .Values.services.gateway.name }}
+
+---
+# ============================================================
+# 7. USER -> LOGGING + NOTIFICATION
+#
+# User Service can send:
+#   Logging      :8004
+#   Notification :8003
+# ============================================================
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: user-egress
+  namespace: {{ .Values.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ .Values.services.user.name }}
+  policyTypes:
+    - Egress
+  egress:
+
+    - to:
+        - podSelector:
+            matchLabels:
+              app: {{ .Values.services.logging.name }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.services.logging.port }}
+
+    - to:
+        - podSelector:
+            matchLabels:
+              app: {{ .Values.services.notification.name }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.services.notification.port }}
+
+---
+# ============================================================
+# 8. LOGGING + NOTIFICATION INGRESS
+#
+# Logging accepts:
+#   Gateway + User
+#
+# Notification accepts:
+#   Gateway + User
+# ============================================================
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: support-services-ingress
+  namespace: {{ .Values.namespace }}
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values:
+          - {{ .Values.services.logging.name }}
+          - {{ .Values.services.notification.name }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: {{ .Values.services.gateway.name }}
+        - podSelector:
+            matchLabels:
+              app: {{ .Values.services.user.name }}
