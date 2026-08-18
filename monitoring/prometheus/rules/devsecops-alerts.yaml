@@ -1,0 +1,80 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: devsecops-alerts
+  namespace: monitoring
+  labels:
+    release: monitoring
+spec:
+  groups:
+
+    # ============================================================
+    # DEVSECOPS POD HEALTH
+    # ============================================================
+
+    - name: devsecops.pod-health
+      rules:
+
+        - alert: DevSecOpsPodNotRunning
+          expr: |
+            sum by (pod) (
+              kube_pod_status_phase{
+                namespace="devsecops",
+                phase="Running"
+              }
+            ) == 0
+          for: 2m
+          labels:
+            severity: critical
+            namespace: devsecops
+          annotations:
+            summary: "DevSecOps pod is not running"
+            description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} has not been in the Running phase for more than 2 minutes."
+
+
+    # ============================================================
+    # DEVSECOPS DEPLOYMENT HEALTH
+    # ============================================================
+
+    - name: devsecops.deployment-health
+      rules:
+
+        - alert: DevSecOpsDeploymentUnavailable
+          expr: |
+            kube_deployment_status_replicas_available{
+              namespace="devsecops"
+            }
+            <
+            kube_deployment_spec_replicas{
+              namespace="devsecops"
+            }
+          for: 2m
+          labels:
+            severity: critical
+            namespace: devsecops
+          annotations:
+            summary: "DevSecOps deployment has unavailable replicas"
+            description: "Deployment {{ $labels.deployment }} has fewer available replicas than desired."
+
+
+    # ============================================================
+    # DEVSECOPS CONTAINER RESTARTS
+    # ============================================================
+
+    - name: devsecops.container-health
+      rules:
+
+        - alert: DevSecOpsContainerRestarting
+          expr: |
+            increase(
+              kube_pod_container_status_restarts_total{
+                namespace="devsecops"
+              }[10m]
+            ) > 2
+          for: 2m
+          labels:
+            severity: warning
+            namespace: devsecops
+          annotations:
+            summary: "DevSecOps container is restarting repeatedly"
+            description: "Container {{ $labels.container }} in pod {{ $labels.pod }} has restarted more than 2 times in the last 10 minutes."
