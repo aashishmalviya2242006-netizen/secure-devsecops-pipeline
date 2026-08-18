@@ -1,0 +1,28 @@
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: AlertmanagerConfig
+metadata:
+  name: devsecops-email
+  namespace: devsecops
+  labels:
+    release: monitoring
+spec:
+  route:
+    groupBy:
+      - alertname
+      - namespace
+    groupWait: 30s
+    groupInterval: 5m
+    repeatInterval: 12h
+    receiver: devsecops-email
+
+  receivers:
+    - name: devsecops-email
+      emailConfigs:
+        - to: aashishmalviya2242006@gmail.com
+          from: aashishmalviya2242006@gmail.com
+          smarthost: smtp.gmail.com:587
+          authUsername: aashishmalviya2242006@gmail.com
+          authPassword:
+            name: alertmanager-gmail
+            key: smtp-auth-password
+          requireTLS: true
