@@ -1,0 +1,53 @@
+driver:
+  kind: modern_ebpf
+
+tty: true
+
+falco:
+  json_output: true
+  json_include_output_property: true
+  log_level: info
+
+serviceMonitor:
+  enabled: true
+
+falcosidekick:
+  enabled: true
+
+  config:
+    alertmanager:
+      hostport: "http://monitoring-kube-prometheus-alertmanager.monitoring:9093"
+      endpoint: "/api/v2/alerts"
+      minimumpriority: "warning"
+
+      # IMPORTANT:
+      # AlertmanagerConfig is namespace-scoped to devsecops.
+      # Add the namespace label required by that route.
+      extralabels: "namespace:devsecops"
+
+customRules:
+  devsecops-rules.yaml: |-
+    - rule: DevSecOps Shell Spawned In Container
+      desc: Detect shell execution inside DevSecOps application containers
+      condition: >
+        spawned_process
+        and container
+        and shell_procs
+        and k8s.ns.name = "devsecops"
+      output: >
+        DevSecOps shell spawned in container
+        (user=%user.name
+        user_uid=%user.uid
+        process=%proc.name
+        parent=%proc.pname
+        command=%proc.cmdline
+        container=%container.name
+        image=%container.image.repository
+        pod=%k8s.pod.name
+        namespace=%k8s.ns.name)
+      priority: WARNING
+      tags:
+        - devsecops
+        - container
+        - shell
+        - runtime

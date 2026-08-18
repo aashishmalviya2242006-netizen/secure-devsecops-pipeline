@@ -26,6 +26,7 @@ spec:
       emailConfigs:
         - to: aashishmalviya2242006@gmail.com
           from: aashishmalviya2242006@gmail.com
+
           smarthost: smtp.gmail.com:587
 
           authUsername: aashishmalviya2242006@gmail.com
