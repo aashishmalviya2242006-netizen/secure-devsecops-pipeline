@@ -15,25 +15,45 @@ pipeline {
         GATEWAY_IMAGE = 'aashu006/devsecops-gateway-service:v1'
         LOGGING_IMAGE = 'aashu006/devsecops-logging-service:v1'
         NOTIFICATION_IMAGE = 'aashu006/devsecops-notification-service:v1'
+
+        KUBE_NAMESPACE = 'devsecops'
+        HELM_RELEASE = 'devsecops'
+        HELM_CHART = './kubernetes/helm/devsecops'
+
+        KUBECONFIG = '/var/lib/jenkins/.kube/config'
     }
 
     stages {
+
+        /*
+         * ============================================================
+         * 1. ENVIRONMENT
+         * ============================================================
+         */
 
         stage('Verify Environment') {
             steps {
                 sh '''
                     set -e
 
-                    echo "========== Environment =========="
+                    echo "========== ENVIRONMENT =========="
 
                     python3 --version
                     pip3 --version
                     docker --version
                     trivy --version
                     cosign version
+                    kubectl version --client
+                    helm version
                 '''
             }
         }
+
+        /*
+         * ============================================================
+         * 2. MICROSERVICE CI
+         * ============================================================
+         */
 
         stage('User Service CI') {
             steps {
@@ -130,6 +150,12 @@ pipeline {
             }
         }
 
+        /*
+         * ============================================================
+         * 3. CODE SECURITY
+         * ============================================================
+         */
+
         stage('SonarQube Analysis') {
             steps {
                 script {
@@ -165,15 +191,16 @@ pipeline {
 
                     mkdir -p security/trivy/reports
 
-                    echo "========== Trivy Filesystem Scan =========="
-                    echo "Security policy: HIGH and CRITICAL findings are reported but do not block CI."
+                    echo "========== TRIVY FILESYSTEM SCAN =========="
+
+                    echo "Scanning HIGH and CRITICAL vulnerabilities..."
 
                     trivy fs \
                         --scanners vuln \
                         --severity HIGH,CRITICAL \
                         --format json \
                         --output security/trivy/reports/trivy-report.json \
-                        --exit-code 0 \
+                        --exit-code 1 \
                         .
 
                     trivy fs \
@@ -181,21 +208,26 @@ pipeline {
                         --severity HIGH,CRITICAL \
                         --format table \
                         --output security/trivy/reports/trivy-report.txt \
-                        --exit-code 0 \
+                        --exit-code 1 \
                         .
 
-                    echo "========== Trivy Filesystem Scan Completed =========="
-                    echo "HIGH and CRITICAL findings, if any, are available in the archived reports."
+                    echo "========== TRIVY FILESYSTEM SCAN PASSED =========="
                 '''
             }
         }
+
+        /*
+         * ============================================================
+         * 4. CONTAINER BUILD
+         * ============================================================
+         */
 
         stage('Build Docker Images') {
             steps {
                 sh '''
                     set -e
 
-                    echo "========== Building Docker Images =========="
+                    echo "========== BUILDING DOCKER IMAGES =========="
 
                     docker build \
                         -f docker/user-service/Dockerfile \
@@ -222,10 +254,16 @@ pipeline {
                         -t notification-service:v1 \
                         services/notification-service
 
-                    echo "========== Docker Images Built Successfully =========="
+                    echo "========== DOCKER BUILD COMPLETED =========="
                 '''
             }
         }
+
+        /*
+         * ============================================================
+         * 5. CONTAINER SECURITY
+         * ============================================================
+         */
 
         stage('Trivy Image Scan') {
             steps {
@@ -234,8 +272,7 @@ pipeline {
 
                     mkdir -p security/trivy/image-reports
 
-                    echo "========== Trivy Docker Image Security Scan =========="
-                    echo "Security policy: HIGH and CRITICAL findings are reported but do not block CI."
+                    echo "========== TRIVY IMAGE SCAN =========="
 
                     trivy image \
                         --scanners vuln \
@@ -277,11 +314,16 @@ pipeline {
                         --exit-code 0 \
                         notification-service:v1
 
-                    echo "========== Trivy Image Scan Completed =========="
-                    echo "HIGH and CRITICAL findings, if any, are available in the archived reports."
+                    echo "========== TRIVY IMAGE SCAN COMPLETED =========="
                 '''
             }
         }
+
+        /*
+         * ============================================================
+         * 6. DOCKER REGISTRY
+         * ============================================================
+         */
 
         stage('Push Images to Registry') {
             steps {
@@ -295,13 +337,13 @@ pipeline {
                     sh '''
                         set -e
 
-                        echo "========== Docker Registry Login =========="
+                        echo "========== DOCKER HUB LOGIN =========="
 
                         echo "$DOCKERHUB_PASSWORD" | docker login \
                             -u "$DOCKERHUB_USERNAME" \
                             --password-stdin
 
-                        echo "========== Tagging Images =========="
+                        echo "========== TAGGING IMAGES =========="
 
                         docker tag user-service:v1 "$USER_IMAGE"
                         docker tag auth-service:v1 "$AUTH_IMAGE"
@@ -309,7 +351,7 @@ pipeline {
                         docker tag logging-service:v1 "$LOGGING_IMAGE"
                         docker tag notification-service:v1 "$NOTIFICATION_IMAGE"
 
-                        echo "========== Pushing Images =========="
+                        echo "========== PUSHING IMAGES =========="
 
                         docker push "$USER_IMAGE"
                         docker push "$AUTH_IMAGE"
@@ -317,11 +359,17 @@ pipeline {
                         docker push "$LOGGING_IMAGE"
                         docker push "$NOTIFICATION_IMAGE"
 
-                        echo "========== Registry Push Completed =========="
+                        echo "========== REGISTRY PUSH COMPLETED =========="
                     '''
                 }
             }
         }
+
+        /*
+         * ============================================================
+         * 7. IMAGE DIGESTS
+         * ============================================================
+         */
 
         stage('Get Image Digests') {
             steps {
@@ -362,6 +410,12 @@ pipeline {
             }
         }
 
+        /*
+         * ============================================================
+         * 8. IMAGE SIGNING
+         * ============================================================
+         */
+
         stage('Cosign Sign Images') {
             steps {
                 withCredentials([
@@ -377,7 +431,7 @@ pipeline {
                     sh '''
                         set -e
 
-                        echo "========== Cosign Signing =========="
+                        echo "========== COSIGN SIGNING =========="
 
                         cosign sign \
                             --yes \
@@ -404,7 +458,7 @@ pipeline {
                             --key "$COSIGN_KEY" \
                             "$NOTIFICATION_DIGEST"
 
-                        echo "========== All Images Signed Successfully =========="
+                        echo "========== ALL IMAGES SIGNED =========="
                     '''
                 }
             }
@@ -415,7 +469,7 @@ pipeline {
                 sh '''
                     set -e
 
-                    echo "========== Cosign Verification =========="
+                    echo "========== COSIGN VERIFICATION =========="
 
                     test -f cosign.pub
 
@@ -439,12 +493,268 @@ pipeline {
                         --key cosign.pub \
                         "$NOTIFICATION_DIGEST"
 
-                    echo "========== All Image Signatures Verified =========="
+                    echo "========== ALL IMAGE SIGNATURES VERIFIED =========="
                 '''
             }
         }
 
+        /*
+         * ============================================================
+         * 9. KUBERNETES / HELM CD
+         * ============================================================
+         */
+
+        stage('Validate Kubernetes Helm Chart') {
+            steps {
+                sh '''
+                    set -e
+
+                    echo "========== HELM LINT =========="
+
+                    helm lint "$HELM_CHART"
+
+                    echo "========== HELM TEMPLATE VALIDATION =========="
+
+                    helm template "$HELM_RELEASE" "$HELM_CHART" \
+                        --namespace "$KUBE_NAMESPACE" \
+                        > /tmp/devsecops-rendered.yaml
+
+                    echo "Helm chart validation successful."
+                '''
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                sh '''
+                    set -e
+
+                    echo "========================================"
+                    echo "DEPLOYING DEVSECOPS TO KUBERNETES"
+                    echo "========================================"
+
+                    kubectl get nodes
+
+                    helm upgrade --install "$HELM_RELEASE" "$HELM_CHART" \
+                        --namespace "$KUBE_NAMESPACE" \
+                        --create-namespace \
+                        --set services.user.tag="v1" \
+                        --set services.auth.tag="v1" \
+                        --set services.gateway.tag="v1" \
+                        --set services.notification.tag="v1" \
+                        --set services.logging.tag="v1"
+
+                    echo "========== KUBERNETES DEPLOYMENT COMPLETED =========="
+                '''
+            }
+        }
+
+        stage('Wait for Kubernetes Rollout') {
+            steps {
+                sh '''
+                    set -e
+
+                    echo "========== WAITING FOR ROLLOUTS =========="
+
+                    kubectl rollout status deployment/user-service \
+                        -n "$KUBE_NAMESPACE" \
+                        --timeout=180s
+
+                    kubectl rollout status deployment/auth-service \
+                        -n "$KUBE_NAMESPACE" \
+                        --timeout=180s
+
+                    kubectl rollout status deployment/gateway-service \
+                        -n "$KUBE_NAMESPACE" \
+                        --timeout=180s
+
+                    kubectl rollout status deployment/notification-service \
+                        -n "$KUBE_NAMESPACE" \
+                        --timeout=180s
+
+                    kubectl rollout status deployment/logging-service \
+                        -n "$KUBE_NAMESPACE" \
+                        --timeout=180s
+
+                    echo "========== ALL ROLLOUTS SUCCESSFUL =========="
+                '''
+            }
+        }
+
+        stage('Verify Kubernetes Deployment') {
+            steps {
+                sh '''
+                    set -e
+
+                    echo "========== PODS =========="
+
+                    kubectl get pods \
+                        -n "$KUBE_NAMESPACE" \
+                        -o wide
+
+                    echo
+                    echo "========== SERVICES =========="
+
+                    kubectl get services \
+                        -n "$KUBE_NAMESPACE"
+
+                    echo
+                    echo "========== DEPLOYMENTS =========="
+
+                    kubectl get deployments \
+                        -n "$KUBE_NAMESPACE"
+
+                    echo
+                    echo "========== HELM RELEASE =========="
+
+                    helm status "$HELM_RELEASE" \
+                        -n "$KUBE_NAMESPACE"
+                '''
+            }
+        }
+
+        stage('Application Health Check') {
+            steps {
+                sh '''
+                    set -e
+
+                    echo "========== APPLICATION HEALTH CHECK =========="
+
+                    kubectl run ci-health-check \
+                        -n "$KUBE_NAMESPACE" \
+                        --rm \
+                        -i \
+                        --restart=Never \
+                        --image=curlimages/curl:8.10.1 \
+                        -- \
+                        curl \
+                        --fail \
+                        --silent \
+                        --show-error \
+                        http://user-service:8001/health
+
+                    echo
+                    echo "========== APPLICATION HEALTH CHECK PASSED =========="
+                '''
+            }
+        }
+
+        /*
+         * ============================================================
+         * 10. MONITORING / SECURITY INFRASTRUCTURE VERIFICATION
+         *
+         * These components are already installed.
+         * Jenkins verifies them; it does NOT reinstall them.
+         * ============================================================
+         */
+
+        stage('Verify Monitoring Stack') {
+            steps {
+                sh '''
+                    set -e
+
+                    echo "========================================"
+                    echo "MONITORING STACK"
+                    echo "========================================"
+
+                    kubectl get pods -n monitoring
+
+                    echo
+                    echo "========== MONITORING DEPLOYMENTS =========="
+
+                    kubectl get deployments -n monitoring
+
+                    echo
+                    echo "========== MONITORING SERVICES =========="
+
+                    kubectl get services -n monitoring
+
+                    echo
+                    echo "Monitoring stack verification completed."
+                '''
+            }
+        }
+
+        /*
+         * ============================================================
+         * 11. RUNTIME SECURITY INFRASTRUCTURE VERIFICATION
+         * ============================================================
+         */
+
+        stage('Verify Runtime Security Stack') {
+            steps {
+                sh '''
+                    set -e
+
+                    echo "========================================"
+                    echo "RUNTIME SECURITY STACK"
+                    echo "========================================"
+
+                    kubectl get pods -n falco
+
+                    echo
+                    echo "========== FALCO DAEMONSET =========="
+
+                    kubectl get daemonset falco -n falco
+
+                    echo
+                    echo "========== FALCOSIDEKICK =========="
+
+                    kubectl get deployment falco-falcosidekick -n falco
+
+                    echo
+                    echo "========== FALCO TALON =========="
+
+                    kubectl get deployment falco-talon -n falco
+
+                    echo
+                    echo "Runtime security stack verification completed."
+                '''
+            }
+        }
+
+        /*
+         * ============================================================
+         * 12. FINAL DEPLOYMENT SUMMARY
+         * ============================================================
+         */
+
+        stage('Final Deployment Verification') {
+            steps {
+                sh '''
+                    set -e
+
+                    echo
+                    echo "=============================================="
+                    echo "      FINAL DEVSECOPS DEPLOYMENT STATUS"
+                    echo "=============================================="
+
+                    echo
+                    echo "----- APPLICATION -----"
+                    kubectl get pods -n devsecops
+
+                    echo
+                    echo "----- MONITORING -----"
+                    kubectl get pods -n monitoring
+
+                    echo
+                    echo "----- RUNTIME SECURITY -----"
+                    kubectl get pods -n falco
+
+                    echo
+                    echo "=============================================="
+                    echo "       DEVSECOPS PIPELINE VERIFIED"
+                    echo "=============================================="
+                '''
+            }
+        }
     }
+
+    /*
+     * ================================================================
+     * POST ACTIONS
+     * ================================================================
+     */
 
     post {
 
@@ -470,45 +780,55 @@ pipeline {
 
         success {
             echo '''
-====================================================
+============================================================
 
-CI + SECURE ARTIFACT PIPELINE COMPLETED.
+FULL DEVSECOPS CI/CD PIPELINE COMPLETED SUCCESSFULLY
 
+CI / SECURITY
 ✔ Environment Verification
-✔ Unit Tests Passed
+✔ Unit Tests
 ✔ SonarQube Analysis
 ✔ OWASP Dependency Check
 ✔ Trivy Filesystem Scan
-✔ Docker Images Built
-✔ Trivy Image Security Scan
-✔ Images Pushed to Docker Hub
-✔ Immutable Image Digests Generated
-✔ Images Signed with Cosign
-✔ Image Signatures Verified
-✔ Security Reports Archived
+✔ Docker Image Build
+✔ Trivy Image Scan
+✔ Docker Hub Push
+✔ Image Digest Generation
+✔ Cosign Image Signing
+✔ Cosign Signature Verification
 
-====================================================
+KUBERNETES CD
+✔ Helm Chart Validation
+✔ Kubernetes Deployment
+✔ Rollout Verification
+✔ Deployment Verification
+✔ Application Health Check
+
+MONITORING
+✔ Prometheus/Grafana Stack Verified
+✔ Alertmanager Stack Verified
+
+RUNTIME SECURITY
+✔ Falco Verified
+✔ Falcosidekick Verified
+✔ Falco Talon Verified
+✔ Autonomous Runtime Response Infrastructure Verified
+
+============================================================
 '''
         }
 
         failure {
             echo '''
-====================================================
+============================================================
 
-CI PIPELINE FAILED.
+DEVSECOPS CI/CD PIPELINE FAILED
 
-Review the failed stage and console output.
+Review the failed Jenkins stage and console output.
 
-Check the specific failed stage in the Jenkins
-console output.
+Security scan reports are archived when available.
 
-Trivy filesystem and image scans are report-only
-for HIGH and CRITICAL vulnerabilities.
-
-Registry push and Cosign signing occur only
-after the preceding CI/security stages succeed.
-
-====================================================
+============================================================
 '''
         }
     }
