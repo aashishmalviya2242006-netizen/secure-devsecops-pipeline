@@ -613,6 +613,21 @@ pipeline {
             }
         }
 
+        /*
+         * ============================================================
+         * 10. APPLICATION HEALTH CHECK
+         *
+         * CI health-check pod is explicitly labelled:
+         *
+         *     app=ci-health-check
+         *
+         * The Falco rule intentionally excludes this pod because
+         * the pod executes curl through a shell as part of CI.
+         *
+         * NetworkPolicy allows this pod to reach all five services.
+         * ============================================================
+         */
+
         stage('Application Health Check') {
             steps {
                 sh '''
@@ -625,13 +640,39 @@ pipeline {
                         --rm \
                         -i \
                         --restart=Never \
+                        --labels=app=ci-health-check \
                         --image=curlimages/curl:8.10.1 \
                         -- \
-                        curl \
-                        --fail \
-                        --silent \
-                        --show-error \
-                        http://user-service:8001/health
+                        sh -c '
+                            set -e
+
+                            echo "===== USER SERVICE ====="
+                            curl --fail --silent --show-error \
+                                http://user-service:8001/health
+                            echo
+
+                            echo "===== AUTH SERVICE ====="
+                            curl --fail --silent --show-error \
+                                http://auth-service:8002/health
+                            echo
+
+                            echo "===== GATEWAY SERVICE ====="
+                            curl --fail --silent --show-error \
+                                http://gateway-service:8000/health
+                            echo
+
+                            echo "===== NOTIFICATION SERVICE ====="
+                            curl --fail --silent --show-error \
+                                http://notification-service:8003/health
+                            echo
+
+                            echo "===== LOGGING SERVICE ====="
+                            curl --fail --silent --show-error \
+                                http://logging-service:8004/health
+                            echo
+
+                            echo "===== ALL FIVE SERVICES PASSED ====="
+                        '
 
                     echo
                     echo "========== APPLICATION HEALTH CHECK PASSED =========="
@@ -641,10 +682,10 @@ pipeline {
 
         /*
          * ============================================================
-         * 10. MONITORING / SECURITY INFRASTRUCTURE VERIFICATION
+         * 11. MONITORING VERIFICATION
          *
-         * These components are already installed.
-         * Jenkins verifies them; it does NOT reinstall them.
+         * Monitoring is already deployed.
+         * Jenkins verifies the existing monitoring infrastructure.
          * ============================================================
          */
 
@@ -677,7 +718,7 @@ pipeline {
 
         /*
          * ============================================================
-         * 11. RUNTIME SECURITY INFRASTRUCTURE VERIFICATION
+         * 12. RUNTIME SECURITY VERIFICATION
          * ============================================================
          */
 
@@ -715,7 +756,7 @@ pipeline {
 
         /*
          * ============================================================
-         * 12. FINAL DEPLOYMENT SUMMARY
+         * 13. FINAL DEPLOYMENT VERIFICATION
          * ============================================================
          */
 
@@ -802,11 +843,13 @@ KUBERNETES CD
 ✔ Kubernetes Deployment
 ✔ Rollout Verification
 ✔ Deployment Verification
-✔ Application Health Check
+✔ Five-Service Application Health Check
 
 MONITORING
-✔ Prometheus/Grafana Stack Verified
-✔ Alertmanager Stack Verified
+✔ Prometheus Verified
+✔ Grafana Verified
+✔ Alertmanager Verified
+✔ Monitoring Stack Verified
 
 RUNTIME SECURITY
 ✔ Falco Verified

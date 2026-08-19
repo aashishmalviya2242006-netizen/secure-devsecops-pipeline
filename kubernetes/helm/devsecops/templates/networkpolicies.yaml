@@ -5,24 +5,24 @@ Secure DevSecOps Pipeline
 
 Communication model:
 
-Client/Test Pod
+CI Health Check Pod
       |
-      | TCP 8000
-      v
+      +---- TCP 8000 ----> Gateway Service
+      +---- TCP 8001 ----> User Service
+      +---- TCP 8002 ----> Auth Service
+      +---- TCP 8003 ----> Notification Service
+      +---- TCP 8004 ----> Logging Service
+
 Gateway Service
       |
       +---- TCP 8001 ----> User Service
-      |
       +---- TCP 8002 ----> Auth Service
-      |
       +---- TCP 8003 ----> Notification Service
-      |
       +---- TCP 8004 ----> Logging Service
 
 User Service
       |
       +---- TCP 8003 ----> Notification Service
-      |
       +---- TCP 8004 ----> Logging Service
 
 All application pods
@@ -90,12 +90,6 @@ spec:
 ---
 # ============================================================
 # 4. CLIENT / TEST POD -> GATEWAY
-#
-# Development/test architecture:
-# Any pod inside devsecops namespace may access Gateway :8000.
-#
-# Later, when an Ingress Controller is added, this policy
-# should be restricted to the Ingress Controller.
 # ============================================================
 
 apiVersion: networking.k8s.io/v1
@@ -121,12 +115,6 @@ spec:
 ---
 # ============================================================
 # 5. GATEWAY -> BACKEND SERVICES
-#
-# Gateway can communicate with:
-#   User         :8001
-#   Auth         :8002
-#   Notification :8003
-#   Logging      :8004
 # ============================================================
 
 apiVersion: networking.k8s.io/v1
@@ -177,13 +165,6 @@ spec:
 ---
 # ============================================================
 # 6. BACKEND SERVICES <- GATEWAY
-#
-# Only Gateway can access:
-#   User         :8001
-#   Auth         :8002
-#
-# Notification and Logging also accept User traffic,
-# which is defined in the next policy.
 # ============================================================
 
 apiVersion: networking.k8s.io/v1
@@ -210,10 +191,6 @@ spec:
 ---
 # ============================================================
 # 7. USER -> LOGGING + NOTIFICATION
-#
-# User Service can send:
-#   Logging      :8004
-#   Notification :8003
 # ============================================================
 
 apiVersion: networking.k8s.io/v1
@@ -248,12 +225,6 @@ spec:
 ---
 # ============================================================
 # 8. LOGGING + NOTIFICATION INGRESS
-#
-# Logging accepts:
-#   Gateway + User
-#
-# Notification accepts:
-#   Gateway + User
 # ============================================================
 
 apiVersion: networking.k8s.io/v1
@@ -279,3 +250,95 @@ spec:
         - podSelector:
             matchLabels:
               app: {{ .Values.services.user.name }}
+
+---
+# ============================================================
+# 9. CI HEALTH CHECK -> ALL APPLICATION SERVICES
+#
+# Jenkins creates a temporary pod with:
+#
+#   app=ci-health-check
+#
+# This pod is explicitly allowed to perform health checks
+# against all five application services.
+#
+# It cannot access arbitrary pods or arbitrary ports.
+# ============================================================
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ci-health-check-ingress
+  namespace: {{ .Values.namespace }}
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values:
+          - {{ .Values.services.user.name }}
+          - {{ .Values.services.auth.name }}
+          - {{ .Values.services.gateway.name }}
+          - {{ .Values.services.notification.name }}
+          - {{ .Values.services.logging.name }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: ci-health-check
+      ports:
+        - protocol: TCP
+          port: {{ .Values.services.gateway.port }}
+        - protocol: TCP
+          port: {{ .Values.services.user.port }}
+        - protocol: TCP
+          port: {{ .Values.services.auth.port }}
+        - protocol: TCP
+          port: {{ .Values.services.notification.port }}
+        - protocol: TCP
+          port: {{ .Values.services.logging.port }}
+
+---
+# ============================================================
+# 10. CI HEALTH CHECK EGRESS
+#
+# The CI health-check pod can communicate only with the
+# five application services on their application ports.
+# ============================================================
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ci-health-check-egress
+  namespace: {{ .Values.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: ci-health-check
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values:
+                  - {{ .Values.services.user.name }}
+                  - {{ .Values.services.auth.name }}
+                  - {{ .Values.services.gateway.name }}
+                  - {{ .Values.services.notification.name }}
+                  - {{ .Values.services.logging.name }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.services.gateway.port }}
+        - protocol: TCP
+          port: {{ .Values.services.user.port }}
+        - protocol: TCP
+          port: {{ .Values.services.auth.port }}
+        - protocol: TCP
+          port: {{ .Values.services.notification.port }}
+        - protocol: TCP
+          port: {{ .Values.services.logging.port }}
