@@ -275,6 +275,8 @@ pipeline {
                     echo "========== TRIVY IMAGE SCAN =========="
 
                     trivy image \
+                        --timeout 15m \
+                        --skip-version-check \
                         --scanners vuln \
                         --severity HIGH,CRITICAL \
                         --format json \
@@ -283,6 +285,8 @@ pipeline {
                         user-service:v1
 
                     trivy image \
+                        --timeout 15m \
+                        --skip-version-check \
                         --scanners vuln \
                         --severity HIGH,CRITICAL \
                         --format json \
@@ -291,6 +295,8 @@ pipeline {
                         auth-service:v1
 
                     trivy image \
+                        --timeout 15m \
+                        --skip-version-check \
                         --scanners vuln \
                         --severity HIGH,CRITICAL \
                         --format json \
@@ -299,6 +305,8 @@ pipeline {
                         gateway-service:v1
 
                     trivy image \
+                        --timeout 15m \
+                        --skip-version-check \
                         --scanners vuln \
                         --severity HIGH,CRITICAL \
                         --format json \
@@ -307,6 +315,8 @@ pipeline {
                         logging-service:v1
 
                     trivy image \
+                        --timeout 15m \
+                        --skip-version-check \
                         --scanners vuln \
                         --severity HIGH,CRITICAL \
                         --format json \
